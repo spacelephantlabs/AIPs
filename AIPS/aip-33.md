@@ -12,15 +12,15 @@
 
 ## Abstract
 
-While fungible tokens can be exchanged with each others without loss of value, non-fungible tokens are unique pieces with value based on their properties and scarcity.
-It's a new way to digitize assets ownership like : sport cards, game stuff, art pieces, houses, identities, ... 
+While fungible tokens can be exchanged with each other without loss of value, non-fungible tokens are unique pieces with value based on their properties and scarcity.
+It's a new way to digitize assets ownership like sports cards, game stuff, art pieces, houses, identities, ... 
 
-This AIP proposes to add a new feature for Ark framework: the non fungible token support. 
+This AIP proposes to add a new feature for Ark framework: the non-fungible token support. 
 It leads to create new transaction types for token creation, transfer and meta-data updates.
 
 ## Motivation
 
-This concept is borned on Ethereum with the [EIP 721](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-721.md) where discussion was: `How can we standardize smart-contracts implementing non-fungible tokens, from the representation and transfer point of views ?`. Main goal was to ease tool creation (like exchanges) wherein multiple  NFT classes could be traded, without the need to adapt to each token specificities. 
+This concept is born on Ethereum with the [EIP 721](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-721.md) where the discussion was: `How can we standardize smart-contracts implementing non-fungible tokens, from the representation and transfer point of views ?`. The main goal was to ease tool creation (like exchanges) wherein multiple  NFT classes could be traded, without the need to adapt to each token specificities. 
 
 Now NFTs are very popular on blockchain platforms, [Ethereum](https://opensea.io/), [Qtum](https://github.com/qtumproject/QRC721Token), [Stellar](https://github.com/future-tense/stellar-nft), [Neo](https://github.com/Splyse/neo-nft-template), [EOS](https://github.com/unicoeos/eosio.nft).
 
@@ -28,16 +28,16 @@ This AIP differs from EIP 721, in the way that we want framework users to be abl
 
 ## Specifications
 
-Here are terms I'll use:
+Here are the terms I'll use:
 - **NFT**: stands for `non-fungible token`
-- **NFT class**: like in *[OOP](https://en.wikipedia.org/wiki/Object-oriented_programming)*, it defines all tokens properties, characteristics and behavior (like distribution model, type of data attached to a token, visibility, price,...).
+- **NFT class**: like in *[OOP](https://en.wikipedia.org/wiki/Object-oriented_programming)*, it defines all tokens properties, characteristics and behaviour (like distribution model, type of data attached to a token, visibility, price,...).
 - **NFT**: it's a unit, an instance of the NFT class. It's an indivisible and unique asset, verifying all NFT class definitions. 
-- **mint**: token creation/instanciation process.
+- **mint**: token creation/instantiation process.
 
 *Note: vocabulary is arbitrary and can be updated with discussions*
 
 In this part, I'll focus on specifications for simple NFT class, allowing mint (First-in-first-served and free), transfer and properties value updates. 
-Then, I'll write a non-exhaustive list of token features, we have to keep in mind during design process. 
+Then, I'll write a non-exhaustive list of token features, we have to keep in mind during the design process. 
 
 ### Transactions 
 
@@ -49,10 +49,10 @@ In order to be able to handle NFTs, I've identified at least two new transaction
 - payload:
     - token id - positive integer (`bignum`)
     - *(optional)* recipient id - address
-- if `recipientId` is set, the transaction updates owner of the token identified by `tokenId`
-- else owner of the given `tokenId` is the transaction sender
-- transaction fails if sender is not the token owner.
-- Notice here that token id is computed off-chain. It's a design choice easing mint process. The same process is used in popular NFTs on other chains (like Cryptokitties on Ethereum).
+- if `recipientId` is set, the transaction updates the owner of the token identified by `tokenId`
+- else the owner of the given `tokenId` is the transaction sender
+- transaction fails if the sender is not the token owner.
+- Notice here that token id is computed off-chain. It's a design choice easing the minting process. The same process is used in popular NFTs on other chains (like Cryptokitties on Ethereum).
 
 **Payload**
 
@@ -63,7 +63,7 @@ In order to be able to handle NFTs, I've identified at least two new transaction
 | transfer type                  | 1            | 0x00 (mint) or 0x01 (transfer)               |
 | recipient address *(optional)* | 21           | 0x171dfc69b54c7fe901e91d5a9ab78388645e2427ea |
 
-- `token id` size (8 bytes) is an arbitrary choice. The idea was to limit transaction size (the same way than `deleguate` username is limited to 20 characters). As a consequence, the maximum number of mintable NFTs is 2^64 units. Which seems huge, but really depends on use-case. 
+- `token id` size (8 bytes) is an arbitrary choice. The idea was to limit transaction size (the same way than `delegate` username is limited to 20 characters). As a consequence, the maximum number of mintable NFTs is 2^64 units. Which seems huge, but really depends on use-case. 
 - `transfer type` payload is only used by de-serializer to know if following 21 bytes must be read or not. This choice has been made to limit new transaction types. As an alternative, we could simply split transaction in two types `mint` and `transfer`.
 - payload size is between 9 and 30 bytes ([type is a mandatory field of transaction header ](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-11.md))
 
@@ -87,8 +87,8 @@ In order to be able to handle NFTs, I've identified at least two new transaction
 | property N value      | 32           | 0x3C9683017F9E4BF33D0FBEDD26BF143FD72DE9B9DD145441B75F0604047EA28E |
 
 - `properties length` is the number of updated properties. It must be positive. Size of the payload has been limited to 1 byte. As a consequence, the maximum number of updatable properties in a single transaction is (2^8)-1=255 properties. 
-- `property key` is encoded in utf8 and can contain maximum 255 characters. 
-- `property value` must be an output of sha-256 function. It's a design choice used to limit size of token meta-data. We don't want blockchain to store lot of crappy data, but prints of these crappy data stored elsewhere.
+- `property key` is encoded in utf8 and can contain a maximum of 255 characters. 
+- `property value` must be an output of the sha-256 function. It's a design choice used to limit the size of token meta-data. We don't want blockchain to store a lot of crappy data, but prints of these crappy data stored elsewhere.
 - payload size is between 43 and 73449 bytes (255 properties with 255 characters key each).
 
 
@@ -101,21 +101,18 @@ A new model must be created to represent an NFT instance:
 class NFT {
     public id: Bignum;
     public properties: { [_: string]: string };
-
     constructor(id: Bignum) {...}
-
     public updateProperty(key: string, value: string) {...}
 }
 ```
 
-Here we can see a design choice: `NFT.id` is of `Bignum` type (a big number). Identify tokens with numbers is a choice based on ERC721 specifications defining nft ids as the largest unsigned integer of the EVM : `uint256` (256 bits).
+Here we can see a design choice: `NFT.id` is of `Bignum` type (a big number). Identify tokens with numbers is a choice based on ERC721 specifications defining NFT ids as the largest unsigned integer of the EVM: `uint256` (256 bits).
 
 Existing `Wallet` model must be extended to reference `owned tokens id`:
 
 ```typescript
 class Wallet {
     [...]
-
     public tokens: Bignum[];
     
     [...]
@@ -124,7 +121,7 @@ class Wallet {
 
 ### Database 
 
-We need to store tokens properties values in database in order to be accessible at any time through API. 
+We need to store tokens properties values in the database in order to be accessible at any time through API. 
 So maybe add a new repository and queries in `core-database-postgres`.
 
 ### API
@@ -137,15 +134,15 @@ Here are some new routes:
 
 Existing routes:
 - [GET] `/wallets/{id}`: must be updated to return `list of owned tokens id`
-- [POST] `/transactions/`: is used to submit a new nft transaction (transfer or update).
+- [POST] `/transactions/`: is used to submit a new NFT transaction (transfer or update).
 
 ### Transaction validation 
 
-In order to be able to verify nft mint transactions, validator must look into current chain state. In deed, one of core principle of minting is that you can't duplicate tokens or create a token with the same identifier than an already owned one. So, if given token id is already affected to an existing wallet, transaction must be rejected. 
+In order to be able to verify `mint` transactions, a validator must look into current chain state. Indeed, one of the core principles of minting is that you can't duplicate tokens or create a token with the same identifier than an already owned one. So, if given token id is already affected to an existing wallet, the transaction must be rejected. 
 
-There is two validation processes: `transaction pool` and `block processor`. Each of them occurs at different steps. Respectively at new transaction received on node and new block received. Each of theses processes validates transactions applying them on two distinct wallet managers (respectively `core-transaction-pool/src/pool-wallet-manager` and `core-database/src/wallet-manager`).
+There are two validation processes: `transaction pool` and `block processor`. Each of them occurs at different steps. Respectively at new transaction received on a node and new block received. Each of these processes validates transactions applying them on two distinct wallet managers (respectively `core-transaction-pool/src/pool-wallet-manager` and `core-database/src/wallet-manager`).
 
-By design `transaction handlers` in `crypto` package can't access to other wallets properties (other wallets than sender), we have to add a specific rule for our nft transactions in `wallet managers` like:
+By design `transaction handlers` in `crypto` package can't access to other wallets properties (other wallets than sender), we have to add a specific rule for our NFT transactions in `wallet managers` like:
 
 ```typescript
 if ( isNFTMintTransaction && isTokenOwned ) {
@@ -157,7 +154,7 @@ These modifications may be outdated due to works on [aip-29 - Generic Transactio
 
 ### NFT dedicated plugin
 
-In order to isolate nft support feature, I propose to create a new core plugin, dedicated to nft management.
+In order to isolate NFT support feature, I propose to create a new core plugin, dedicated to NFT management.
 This plugin could have many roles:
 - define models
 - parse configuration
@@ -167,7 +164,7 @@ This plugin could have many roles:
 
 ### Advanced token features
 
-Here is an non-exhaustive list of behaviors and characteristics token class could specify, to keep in mind during design process. In my point of view, some items could be a dedicated future AIP. 
+Here is a non-exhaustive list of behaviours and characteristics token class could specify, to keep in mind during the design process. In my point of view, some items could be a dedicated future AIP. 
 
 - advanced token distribution 
     - complex mint process, 
@@ -182,7 +179,7 @@ Here is an non-exhaustive list of behaviors and characteristics token class coul
         - forced release,
         - ...
 - multiple NFT class on the same chain
-- composability (NFT linked to each others)
+- composability (NFT linked to each other)
 - ... 
 
 ## Reference Implementation
@@ -209,7 +206,6 @@ Project sources are available [here](https://github.com/spacelephantlabs/core).
 
 - fix existing bugs
 - persist in database
-- estimate and set default fees amount. How ?
+- estimate and set default fees amount. How?
 - write some tests 
-
 
