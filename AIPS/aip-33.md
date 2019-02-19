@@ -16,7 +16,7 @@ While fungible tokens can be exchanged with each other without loss of value, no
 It's a new way to digitize assets ownership like sports cards, game stuff, art pieces, houses, identities, ... 
 
 This AIP proposes to add a new feature for Ark framework: the non-fungible token support. 
-It leads to create new transaction types for token creation, transfer and meta-data updates.
+It leads to create new transaction types for token creation, transfer and metadata updates.
 
 ## Motivation
 
@@ -185,9 +185,9 @@ Here is a non-exhaustive list of behaviours and characteristics token class coul
 ## Reference Implementation
 
 I'm working on [`@unik-name`](https://www.unik-name.com/) solution at [Spacelephant](https://www.spacelephant.org/) and our product is based on NFTs. 
-So, in our lab, we've developed a proof-of-concept of Ark's NFT. 
+We've developed a proof-of-concept of Ark's NFT in our labs.
 
-Project sources are available [here](https://github.com/spacelephantlabs/core).
+Project sources are available [on the dedicated repository](https://github.com/spacelephantlabs/core).
 
 **What has been done:**
 
@@ -209,3 +209,4 @@ Project sources are available [here](https://github.com/spacelephantlabs/core).
 - estimate and set default fees amount. How?
 - write some tests 
 
+See the [README of the project](https://github.com/spacelephantlabs/core/blob/master/README.md) for an updated version of the todo/done tasks.
