@@ -28,7 +28,7 @@ This AIP differs from EIP 721, in the way that we want framework users to be abl
 
 ## Specifications
 
-Here are the terms I'll use:
+Here are the terms used in this document:
 - **NFT**: stands for `non-fungible token`
 - **NFT class**: like in *[OOP](https://en.wikipedia.org/wiki/Object-oriented_programming)*, it defines all tokens properties, characteristics and behaviour (like distribution model, type of data attached to a token, visibility, price,...).
 - **NFT**: it's a unit, an instance of the NFT class. It's an indivisible and unique asset, verifying all NFT class definitions. 
@@ -36,16 +36,16 @@ Here are the terms I'll use:
 
 *Note: vocabulary is arbitrary and can be updated with discussions*
 
-In this part, I'll focus on specifications for simple NFT class, allowing mint (First-in-first-served and free), transfer and properties value updates. 
-Then, I'll write a non-exhaustive list of token features, we have to keep in mind during the design process. 
+In this part, we focus on specifications for simple NFT class, allowing mint (First-in-first-served and free), transfer and properties value updates. 
+Then, a non-exhaustive list of token features we have to keep in mind during the design process are described. 
 
 ### Transactions 
 
-In order to be able to handle NFTs, I've identified at least two new transactions: 
+In order to be able to handle NFTs, at least two new transactions must be defined: 
 
 #### Transfer
 
-- mint or transfer token ownership
+- `mint` or `transfer` token ownership
 - payload:
     - token id - positive integer (`bignum`)
     - *(optional)* recipient id - address
@@ -154,8 +154,8 @@ These modifications may be outdated due to works on [aip-29 - Generic Transactio
 
 ### NFT dedicated plugin
 
-In order to isolate NFT support feature, I propose to create a new core plugin, dedicated to NFT management.
-This plugin could have many roles:
+In order to isolate NFT support feature, a new core plugin has been created, dedicated to NFT management.
+This plugin has many roles:
 - define models
 - parse configuration
 - build token logic and validation rules from configuration
@@ -164,7 +164,7 @@ This plugin could have many roles:
 
 ### Advanced token features
 
-Here is a non-exhaustive list of behaviours and characteristics token class could specify, to keep in mind during the design process. In my point of view, some items could be a dedicated future AIP. 
+Here is a non-exhaustive list of behaviours and characteristics token class could specify, to keep in mind during the design process. Some items could have a dedicated AIP in the future. 
 
 - advanced token distribution 
     - complex mint process, 
