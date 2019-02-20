@@ -30,68 +30,88 @@ This AIP differs from EIP 721, in the way that we want framework users to be abl
 
 Here are the terms used in this document:
 - **NFT**: stands for `non-fungible token`
-- **NFT class**: like in *[OOP](https://en.wikipedia.org/wiki/Object-oriented_programming)*, it defines all tokens properties, characteristics and behaviour (like distribution model, type of data attached to a token, visibility, price,...).
+- **NFT class**: like in *[OOP](https://en.wikipedia.org/wiki/Object-oriented_programming)*, it defines all tokens properties, characteristics and behaviour (like distribution model, type of data attached to a token, visibility, price,...). We can call them: token ***meta-datas***. They can't be updated by user transactions. They're used to identify NFT classes (supposing multiple ones co-exist on the same chain).
 - **NFT**: it's a unit, an instance of the NFT class. It's an indivisible and unique asset, verifying all NFT class definitions. 
 - **mint**: token creation/instantiation process.
 
 *Note: vocabulary is arbitrary and can be updated with discussions*
 
-In this part, we focus on specifications for simple NFT class, allowing mint (First-in-first-served and free), transfer and properties value updates. 
+In this part, we focus on specifications for a simple NFT class, allowing mint (First-in-first-served and free), transfer, properties value updates and living alone on a dedicated chain (not handling multiple NFT classes). 
 Then, a non-exhaustive list of token features we have to keep in mind during the design process are described. 
 
 ### Transactions 
 
-In order to be able to handle NFTs, at least two new transactions must be defined: 
+The advantage of NFTs is that you cryptographically own a token. As a consequence, a transaction is valid only if sender is the token owner. 
 
-#### Transfer
+In order to be able to handle NFTs, at least two new transactions must be defined (types `9` and `10`): 
 
-- `mint` or `transfer` token ownership
-- payload:
-    - token id - positive integer (`bignum`)
-    - *(optional)* recipient id - address
-- if `recipientId` is set, the transaction updates the owner of the token identified by `tokenId`
-- else the owner of the given `tokenId` is the transaction sender
-- transaction fails if the sender is not the token owner.
-- Notice here that token id is computed off-chain. It's a design choice easing the minting process. The same process is used in popular NFTs on other chains (like Cryptokitties on Ethereum).
+#### Transfer (type 9)
 
-**Payload**
+Because under the hood they are very similar, `NFT Transfer` transaction type gathers two behaviors:
+    - **token mint:** seal existence of unique token id and its owner.
+    - **token ownership transfer:** seal the new owner of a token.
 
-| Description                    | Size (bytes) | Example                                      |
-| ------------------------------ | ------------ | :------------------------------------------- |
-| type                           | 1            | 0x09                                         |
-| token id                       | 8            | 0x0000000000000001                           |
-| transfer type                  | 1            | 0x00 (mint) or 0x01 (transfer)               |
-| recipient address *(optional)* | 21           | 0x171dfc69b54c7fe901e91d5a9ab78388645e2427ea |
+**Transaction dedicated parameters**
+    - token id: positive integer (`bignum`)
+    - *(optional)* recipient id: address (`string`)
 
-- `token id` size (8 bytes) is an arbitrary choice. The idea was to limit transaction size (the same way than `delegate` username is limited to 20 characters). As a consequence, the maximum number of mintable NFTs is 2^64 units. Which seems huge, but really depends on use-case. 
-- `transfer type` payload is only used by de-serializer to know if following 21 bytes must be read or not. This choice has been made to limit new transaction types. As an alternative, we could simply split transaction in two types `mint` and `transfer`.
-- payload size is between 9 and 30 bytes ([type is a mandatory field of transaction header ](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-11.md))
+If a `NFT Transfer` transaction is created without `recipient id` field, it's a `token mint` transaction. Else, it's a `token ownership transfer` transaction.
+A `token mint` transaction is valid as soon as given token id has not been sealed previously. Then, owner of this new token is the transaction sender.
+A `token ownership transfer` transaction is valid if:
+    - token identified by given token id has been previously sealed
+    - transaction sender is the owner of given token id
 
-#### Update
+**Transaction payload**
 
-- update token meta-data(s)
-- payload:
-    - token id
-    - map of `propertyName` / `propertyValue` 
-- transaction fails if token owner differs from sender
+| Description                    | Size (bytes) | Example                                                            |
+| ------------------------------ | ------------ | :----------------------------------------------------------------- |
+| type                           | 1            | 0x09                                                               |
+| token id                       | 32           | 0x0000000000000000000000000000000000000000000000000000000000000001 |
+| transfer type                  | 1            | 0x00 (mint) or 0x01 (transfer)                                     |
+| recipient address *(optional)* | 21           | 0x171dfc69b54c7fe901e91d5a9ab78388645e2427ea                       |
 
-**Payload**
+Payload size is between **33** and **55 bytes** ([type is a mandatory field of transaction header ](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-11.md))
+
+**Design choices**
+
+1. `token id` size (32 bytes) is an arbitrary choice inherited from [ERC721 specifications](https://github.com/ethereum/EIPs/blame/master/EIPS/eip-721.md#L270-L274) defining NFT ids as the largest unsigned integer of the EVM: `uint256` (256 bits).
+2. `transfer type` payload is only used by de-serializer to know if following 21 bytes must be read or not. This choice has been made to limit the number of new transaction types. As an alternative, we could simply split transaction in two types `mint` and `transfer`.
+3. `Transfer` type is only used to create a new blank token or update ownership property. It means that we need at least two transactions to create a new token with user-defined properties.
+4. Token id is computed off-chain. It's a design choice easing the minting process. The same process is used in popular NFTs on other chains (like Cryptokitties on Ethereum).
+5. It's not possible to mint a token for someone else. Two transactions are needed (`mint` then `transfer`). It's a questionable design choice. 
+
+#### Update (type 10)
+
+This transaction type is used to update token properties value.
+
+**Transaction dedicated parameters**
+    - token id: which token to update
+    - map of `propertyName` / `propertyValue`: list of new token properties value. 
+    
+Transaction is valid if:
+    - token identified by given token id has been previously sealed
+    - transaction sender is the owner of given token id
+
+**Transaction payload**
 
 | Description           | Size (bytes) | Example                                                            |
 | --------------------- | ------------ | :----------------------------------------------------------------- |
 | type                  | 1            | 0x0A                                                               |
-| token id              | 8            | 0x0000000000000001                                                 |
+| token id              | 32           | 0x0000000000000000000000000000000000000000000000000000000000000001 |
 | properties length     | 1            | 0x01                                                               |
 | property N key length | 1            | 0x3F                                                               |
 | property N key (utf-8)| 1-255        | 0x70726f706572747931                                               |
 | property N value      | 32           | 0x3C9683017F9E4BF33D0FBEDD26BF143FD72DE9B9DD145441B75F0604047EA28E |
 
-- `properties length` is the number of updated properties. It must be positive. Size of the payload has been limited to 1 byte. As a consequence, the maximum number of updatable properties in a single transaction is (2^8)-1=255 properties. 
-- `property key` is encoded in utf8 and can contain a maximum of 255 characters. 
-- `property value` must be an output of the sha-256 function. It's a design choice used to limit the size of token meta-data. We don't want blockchain to store a lot of crappy data, but prints of these crappy data stored elsewhere.
-- payload size is between 43 and 73449 bytes (255 properties with 255 characters key each).
+Payload size is between **68** (single property with 1 character key) and **73220 bytes** (255 properties with 255 characters key each).
 
+**Design choices**
 
+1. `properties length` is the number of updated properties. It must be positive. Size of the payload has been limited to 1 byte. As a consequence, the maximum number of updatable properties in a single transaction is (2^8)-1=255 properties. 
+2. `property key` is encoded in utf8 and can contain a maximum of 255 characters. 
+3. `property value` must be an output of the sha-256 function. It's a design choice used to limit the size of token properties value. We don't want blockchain to store a lot of crappy data, but prints of these crappy data stored elsewhere.
+4. No controls are made on-chain on new properties value.
+5. `Token id` and `token owners` can't be updated with this transaction type. `Token id` can't be updated at all.`Token owner` can be updated with a `transfer` transaction.
 
 ### Model
 
@@ -121,15 +141,15 @@ class Wallet {
 
 ### Database 
 
-We need to store tokens properties values in the database in order to be accessible at any time through API. 
-So maybe add a new repository and queries in `core-database-postgres`.
+We need to store tokens properties values in the database in order be accessible at any time through API. 
+A new repository and queries in `core-database-postgres` are required.
 
 ### API
 
 We need new routes fetching NFTs from current chain state. 
 Here are some new routes:
 
-- [GET] `/nfts/`: to index all created NFTs
+- [GET] `/nfts/`: to index all sealed NFTs. This route follows the same logic as other root routes (like `/transactions` or `/blocks`). It's paginated and returns all properties for each NFT.
 - [GET] `/nfts/{id}`: to show NFT instance with given identifier and all its properties
 
 Existing routes:
@@ -138,7 +158,7 @@ Existing routes:
 
 ### Transaction validation 
 
-In order to be able to verify `mint` transactions, a validator must look into current chain state. Indeed, one of the core principles of minting is that you can't duplicate tokens or create a token with the same identifier than an already owned one. So, if given token id is already affected to an existing wallet, the transaction must be rejected. 
+In order to be able to verify `mint` transactions, a validator must look into current chain state. Indeed, one of the core principles of minting is that you can't duplicate tokens or create a token with the same identifier as an already owned one. So, if given token id is already affected to an existing wallet, the transaction must be rejected. 
 
 There are two validation processes: `transaction pool` and `block processor`. Each of them occurs at different steps. Respectively at new transaction received on a node and new block received. Each of these processes validates transactions applying them on two distinct wallet managers (respectively `core-transaction-pool/src/pool-wallet-manager` and `core-database/src/wallet-manager`).
 
@@ -187,7 +207,7 @@ Here is a non-exhaustive list of behaviours and characteristics token class coul
 I'm working on [`@unik-name`](https://www.unik-name.com/) solution at [Spacelephant](https://www.spacelephant.org/) and our product is based on NFTs. 
 We've developed a proof-of-concept of Ark's NFT in our labs.
 
-Project sources are available [on the dedicated repository](https://github.com/spacelephantlabs/core).
+Project sources are available [on the dedicated repository](https://github.com/spacelephantlabs/ark-core_non-fungible-token).
 
 **What has been done:**
 
@@ -199,14 +219,15 @@ Project sources are available [on the dedicated repository](https://github.com/s
     - handlers
 - a dedicated package (`core-nft`) handling NFT class configuration and management. 
 - API routes to access NFTs properties
-- a very simple CLI to build NFT transactions for a demo.
-- some other packages adaptations
+- update of `tester-cli` package to build `nft` transactions (mint and transfer).
+- various packages adaptations. 
 
 **Future works:**
 
-- fix existing bugs
+- fix double transaction execution (in the pool **and** in the block processor).
 - persist in database
 - estimate and set default fees amount. How?
 - write some tests 
+- implement a way to revert `update` transactions. 
 
-See the [README of the project](https://github.com/spacelephantlabs/core/blob/master/README.md) for an updated version of the todo/done tasks.
+See the [README of the project](https://github.com/spacelephantlabs/ark-core_non-fungible-token/blob/master/README.md) for an updated version of the todo/done tasks.
