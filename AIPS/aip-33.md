@@ -16,13 +16,13 @@ While fungible tokens can be exchanged with each other without loss of value, no
 It's a new way to digitize assets ownership like sports cards, game stuff, art pieces, houses, identities, ... 
 
 This AIP proposes to add a new feature for Ark framework: the non-fungible token support. 
-It leads to create new transaction types for token creation, transfer and metadata updates.
+It leads to create new transaction types for token creation, transfer and properties values updates.
 
 ## Motivation
 
 This concept is born on Ethereum with the [EIP 721](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-721.md) where the discussion was: `How can we standardize smart-contracts implementing non-fungible tokens, from the representation and transfer point of views ?`. The main goal was to ease tool creation (like exchanges) wherein multiple  NFT classes could be traded, without the need to adapt to each token specificities. 
 
-Now NFTs are very popular on blockchain platforms, [Ethereum](https://opensea.io/), [Qtum](https://github.com/qtumproject/QRC721Token), [Stellar](https://github.com/future-tense/stellar-nft), [Neo](https://github.com/Splyse/neo-nft-template), [EOS](https://github.com/unicoeos/eosio.nft).
+Now NFTs are very popular on blockchain platforms, [Ethereum](https://opensea.io/), [Qtum](https://github.com/qtumproject/QRC721Token), [Stellar](https://github.com/future-tense/stellar-nft), [Neo](https://github.com/Splyse/neo-nft-template), [EOS](https://github.com/unicoeos/eosio.nft),...
 
 This AIP differs from EIP 721, in the way that we want framework users to be able to configure NFT class, create, update and transfer on their custom chain, without editing core code, but simply with configuration files. It's continuity of `blockchain in one click` baseline.
 
@@ -30,14 +30,14 @@ This AIP differs from EIP 721, in the way that we want framework users to be abl
 
 Here are the terms used in this document:
 - **NFT**: stands for `non-fungible token`
-- **NFT class**: like in *[OOP](https://en.wikipedia.org/wiki/Object-oriented_programming)*, it defines all tokens properties, characteristics and behaviour (like distribution model, type of data attached to a token, visibility, price,...). We can call them: token ***meta-datas***. They can't be updated by user transactions. They're used to identify NFT classes (supposing multiple ones co-exist on the same chain).
-- **NFT**: it's a unit, an instance of the NFT class. It's an indivisible and unique asset, verifying all NFT class definitions. 
+- **NFT class**: like in *[OOP](https://en.wikipedia.org/wiki/Object-oriented_programming)*, it defines all tokens properties, characteristics and behaviours (like distribution model, type of data attached to a token, visibility, price,...). They can't be updated by user transactions. They're used to identify NFT classes (supposing multiple ones co-exist on the same chain).
+- **NFT**: it's a unit, an instance of the NFT class. It's an indivisible and unique asset, verifying all NFT class properties. 
 - **mint**: token creation/instantiation process.
 
 *Note: vocabulary is arbitrary and can be updated with discussions*
 
-In this part, we focus on specifications for a simple NFT class, allowing mint (First-in-first-served and free), transfer, properties value updates and living alone on a dedicated chain (not handling multiple NFT classes). 
-Then, a non-exhaustive list of token features we have to keep in mind during the design process are described. 
+In this part, we focus on specifications for a simple NFT class, allowing mint (first-in-first-served and free), ownership transfer and properties values updates. We assume that NFT class is living alone on a dedicated chain (*i.e* the chain does not handle multiple ones). 
+Then, we describe a non-exhaustive list of token features we have to keep in mind during the design process. 
 
 ### Transactions 
 
@@ -45,21 +45,24 @@ The advantage of NFTs is that you cryptographically own a token. As a consequenc
 
 In order to be able to handle NFTs, at least two new transactions must be defined (types `9` and `10`): 
 
-#### Transfer (type 9)
+#### > Transfer (type 9)
 
 Because under the hood they are very similar, `NFT Transfer` transaction type gathers two behaviors:
-    - **token mint:** seal existence of unique token id and its owner.
-    - **token ownership transfer:** seal the new owner of a token.
+- **token mint:** seal existence of unique token id and its owner.
+- **token ownership transfer:** seal the new owner of a token.
 
 **Transaction dedicated parameters**
-    - token id: positive integer (`bignum`)
-    - *(optional)* recipient id: address (`string`)
+
+- token id: positive integer (`bignum`)
+- *(optional)* recipient id: address (`string`)
 
 If a `NFT Transfer` transaction is created without `recipient id` field, it's a `token mint` transaction. Else, it's a `token ownership transfer` transaction.
+
 A `token mint` transaction is valid as soon as given token id has not been sealed previously. Then, owner of this new token is the transaction sender.
+
 A `token ownership transfer` transaction is valid if:
-    - token identified by given token id has been previously sealed
-    - transaction sender is the owner of given token id
+- token identified by given token id has been previously sealed
+- transaction sender is the owner of given token id
 
 **Transaction payload**
 
@@ -70,7 +73,7 @@ A `token ownership transfer` transaction is valid if:
 | transfer type                  | 1            | 0x00 (mint) or 0x01 (transfer)                                     |
 | recipient address *(optional)* | 21           | 0x171dfc69b54c7fe901e91d5a9ab78388645e2427ea                       |
 
-Payload size is between **33** and **55 bytes** ([type is a mandatory field of transaction header ](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-11.md))
+Payload size is between **33** and **54 bytes** ([type is a mandatory field of **transaction header** ](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-11.md))
 
 **Design choices**
 
@@ -80,17 +83,18 @@ Payload size is between **33** and **55 bytes** ([type is a mandatory field of t
 4. Token id is computed off-chain. It's a design choice easing the minting process. The same process is used in popular NFTs on other chains (like Cryptokitties on Ethereum).
 5. It's not possible to mint a token for someone else. Two transactions are needed (`mint` then `transfer`). It's a questionable design choice. 
 
-#### Update (type 10)
+#### > Update (type 10)
 
-This transaction type is used to update token properties value.
+This transaction type is used to update token properties values.
 
 **Transaction dedicated parameters**
-    - token id: which token to update
-    - map of `propertyName` / `propertyValue`: list of new token properties value. 
+
+- token id: which token to update
+- map of `propertyName` / `propertyValue`: list of new token properties value. 
     
 Transaction is valid if:
-    - token identified by given token id has been previously sealed
-    - transaction sender is the owner of given token id
+- token identified by given token id has been previously sealed
+- transaction sender is the owner of given token id
 
 **Transaction payload**
 
@@ -103,7 +107,7 @@ Transaction is valid if:
 | property N key (utf-8)| 1-255        | 0x70726f706572747931                                               |
 | property N value      | 32           | 0x3C9683017F9E4BF33D0FBEDD26BF143FD72DE9B9DD145441B75F0604047EA28E |
 
-Payload size is between **68** (single property with 1 character key) and **73220 bytes** (255 properties with 255 characters key each).
+Payload size is between **67** (single property with 1 character key) and **73219 bytes** (255 properties with 255 characters key each).
 
 **Design choices**
 
@@ -170,7 +174,7 @@ if ( isNFTMintTransaction && isTokenOwned ) {
 }           
 ```
 
-These modifications may be outdated due to works on [aip-29 - Generic Transaction Interface](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-29.md). 
+*These modifications may be outdated due to works on [aip-29 - Generic Transaction Interface](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-29.md).*
 
 ### NFT dedicated plugin
 
@@ -184,20 +188,20 @@ This plugin has many roles:
 
 ### Advanced token features
 
-Here is a non-exhaustive list of behaviours and characteristics token class could specify, to keep in mind during the design process. Some items could have a dedicated AIP in the future. 
+Here is a non-exhaustive list of behaviours and characteristics token class could specify, to keep in mind during the design process. They're inspired by existing ERC721 tokens. Some items could have a dedicated AIP in the future. 
 
 - advanced token distribution 
-    - complex mint process, 
-    - dynamic/static price, 
-    - limit available tokens, 
-    - auction, 
-    - renewable ownership,
-    - ... 
-- security mechanisms with roles controlling token life-cycle (
-        - unusable, 
-        - kill, 
-        - forced release,
-        - ...
+  - complex mint process, 
+  - dynamic/static price, 
+  - limit available tokens, 
+  - auction, 
+  - renewable ownership,
+  - ... 
+- security mechanisms with roles controlling token life-cycle
+  - unusable, 
+  - kill, 
+  - forced release,
+  - ...
 - multiple NFT class on the same chain
 - composability (NFT linked to each other)
 - ... 
@@ -224,10 +228,11 @@ Project sources are available [on the dedicated repository](https://github.com/s
 
 **Future works:**
 
-- fix double transaction execution (in the pool **and** in the block processor).
+- fix double transaction execution
 - persist in database
-- estimate and set default fees amount. How?
-- write some tests 
-- implement a way to revert `update` transactions. 
+- implement a way to revert update transactions.
+- estimate and set default fees amount.
+- rename /nft API to /nfts
+- fix old tests.
 
-See the [README of the project](https://github.com/spacelephantlabs/ark-core_non-fungible-token/blob/master/README.md) for an updated version of the todo/done tasks.
+See the [README of the project](https://github.com/spacelephantlabs/ark-core_non-fungible-token/blob/feat/nft/README.md) for an updated version of the todo/done tasks.
