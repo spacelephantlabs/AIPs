@@ -143,6 +143,23 @@ class Wallet {
 }
 ```
 
+### Events
+
+In order to be compatible with existing applications handling NFTs (exchanges, wallets,... ), we must provide a simple way to detect updates on NFTs. 
+Similarly to [ERC721](https://github.com/ethereum/EIPs/blame/master/EIPS/eip-721.md#L49-L54) proposal, we can broadcast events at several steps of NFTs life-cycle:
+
+- token creation
+- ownership update
+- properties update
+
+`Core-webhooks` is the module forwarding events to applications. 
+
+It's listening `event-emitter` events, so new [blockchain events](https://github.com/ArkEcosystem/core/blob/master/packages/core-blockchain/src/blockchain.ts#L579-L604) must be added:
+
+- `nft.created`
+- `nft.transferred`
+- `nft.updated`
+
 ### Database 
 
 We need to store tokens properties values in the database in order be accessible at any time through API. 
