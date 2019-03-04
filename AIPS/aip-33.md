@@ -53,7 +53,7 @@ Because under the hood they are very similar, `NFT Transfer` transaction type ga
 
 **Transaction dedicated parameters**
 
-- token id: positive integer (`bignum`)
+- token id: a large number
 - *(optional)* recipient id: address (`string`)
 
 If a `NFT Transfer` transaction is created without `recipient id` field, it's a `token mint` transaction. Else, it's a `token ownership transfer` transaction.
@@ -77,7 +77,7 @@ Payload size is between **33** and **54 bytes** ([type is a mandatory field of *
 
 **Design choices**
 
-1. `token id` size (32 bytes) is an arbitrary choice inherited from [ERC721 specifications](https://github.com/ethereum/EIPs/blame/master/EIPS/eip-721.md#L270-L274) defining NFT ids as the largest unsigned integer of the EVM: `uint256` (256 bits).
+1. `token id` size (32 bytes) is an arbitrary choice inherited from [ERC721 specifications](https://github.com/ethereum/EIPs/blame/master/EIPS/eip-721.md#L270-L274) identifying NFTs as the largest unsigned integer of the EVM: `uint256` (256 bits). It also allows a wide variety of applications because UUIDs and sha3 outputs are of this size. 
 2. `transfer type` payload is only used by de-serializer to know if following 21 bytes must be read or not. This choice has been made to limit the number of new transaction types. As an alternative, we could simply split transaction in two types `mint` and `transfer`.
 3. `Transfer` type is only used to create a new blank token or update ownership property. It means that we need at least two transactions to create a new token with user-defined properties.
 4. Token id is computed off-chain. It's a design choice easing the minting process. The same process is used in popular NFTs on other chains (like Cryptokitties on Ethereum).
@@ -123,21 +123,22 @@ A new model must be created to represent an NFT instance:
 
 ```typescript
 class NFT {
-    public id: Bignum;
+    public id: Buffer;
     public properties: { [_: string]: string };
-    constructor(id: Bignum) {...}
+    constructor(id: Buffer) {...}
     public updateProperty(key: string, value: string) {...}
 }
 ```
 
-Here we can see a design choice: `NFT.id` is of `Bignum` type (a big number). Identify tokens with numbers is a choice based on ERC721 specifications defining NFT ids as the largest unsigned integer of the EVM: `uint256` (256 bits).
+Here we can see a design choice: `NFT.id` is of `Buffer` type (a stream of bytes). 
+`Buffer` type is better at handling data and can represent tokens as large numbers. 
 
 Existing `Wallet` model must be extended to reference `owned tokens id`:
 
 ```typescript
 class Wallet {
     [...]
-    public tokens: Bignum[];
+    public tokens: Buffer[];
     
     [...]
 }
