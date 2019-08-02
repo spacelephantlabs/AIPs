@@ -107,7 +107,7 @@ Transaction is valid if:
 | property N key (utf-8)| 1-255        | 0x70726f706572747931                                               |
 | property N value      | 32           | 0x3C9683017F9E4BF33D0FBEDD26BF143FD72DE9B9DD145441B75F0604047EA28E |
 
-Payload size is between **67** (single property with 1 character key) and **73219 bytes** (255 properties with 255 characters key each).
+Payload size is between **67** (single property with 1 character key) and **73473 bytes** (255 properties with 255 characters key each).
 
 **Design choices**
 
@@ -123,22 +123,19 @@ A new model must be created to represent an NFT instance:
 
 ```typescript
 class NFT {
-    public id: Buffer;
+    public id: string;
     public properties: { [_: string]: string };
-    constructor(id: Buffer) {...}
+    constructor(id: string) {...}
     public updateProperty(key: string, value: string) {...}
 }
 ```
-
-Here we can see a design choice: `NFT.id` is of `Buffer` type (a stream of bytes). 
-`Buffer` type is better at handling data and can represent tokens as large numbers. 
 
 Existing `Wallet` model must be extended to reference `owned tokens id`:
 
 ```typescript
 class Wallet {
     [...]
-    public tokens: Buffer[];
+    public tokens: string[];
     
     [...]
 }
@@ -163,7 +160,8 @@ It's listening `event-emitter` events, so new [blockchain events](https://github
 
 ### Database 
 
-We need to store tokens properties values in the database in order be accessible at any time through API. 
+We need to store tokens and their properties values in the database because of scalability. Indeed, store nfts and their properties in memory (like wallets) could cause performance issues and memory bursting.
+
 A new repository and queries in `core-database-postgres` are required.
 
 ### API
@@ -173,26 +171,12 @@ Here are some new routes:
 
 - [GET] `/nfts/`: to index all sealed NFTs. This route follows the same logic as other root routes (like `/transactions` or `/blocks`). It's paginated and returns all properties for each NFT.
 - [GET] `/nfts/{id}`: to show NFT instance with given identifier and all its properties
+- [GET] `/nfts/{id}/properties`: to get all properties of a NFT (paginated)
 
 Existing routes:
 - [GET] `/wallets/{id}`: must be updated to return `list of owned tokens id`
 - [POST] `/transactions/`: is used to submit a new NFT transaction (transfer or update).
 
-### Transaction validation 
-
-In order to be able to verify `mint` transactions, a validator must look into current chain state. Indeed, one of the core principles of minting is that you can't duplicate tokens or create a token with the same identifier as an already owned one. So, if given token id is already affected to an existing wallet, the transaction must be rejected. 
-
-There are two validation processes: `transaction pool` and `block processor`. Each of them occurs at different steps. Respectively at new transaction received on a node and new block received. Each of these processes validates transactions applying them on two distinct wallet managers (respectively `core-transaction-pool/src/pool-wallet-manager` and `core-database/src/wallet-manager`).
-
-By design `transaction handlers` in `crypto` package can't access to other wallets properties (other wallets than sender), we have to add a specific rule for our NFT transactions in `wallet managers` like:
-
-```typescript
-if ( isNFTMintTransaction && isTokenOwned ) {
-    return new Error("reject")
-}           
-```
-
-*These modifications may be outdated due to works on [aip-29 - Generic Transaction Interface](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-29.md).*
 
 ### NFT dedicated plugin
 
@@ -203,6 +187,96 @@ This plugin has many roles:
 - build token logic and validation rules from configuration
 - keep and manage the state of NFTs at runtime
 - ...
+
+### NFT configuration file
+
+A NFT must be configurable through `network.json` file because its properties are specific to a network and must be the same for all nodes validating nft transactions.
+
+A new property of `network` is created. Here is a configuration sample: 
+
+```JSON
+{
+    "nft":{
+        "name": "UNIK",
+        "properties":{
+            "a":{
+                "constraints":[
+                    "immutable",
+                    {
+                        "name":"type",
+                        "parameters": {
+                            "type": "number",
+                            "min": 1,
+                            "max": 2
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}
+```
+
+A NFT has a name and properties. In this configuration file, you could set constraints on a properties value.
+
+A constraint would be :
+- a name/identifier
+- optional parameters to customize constraints depending on property.
+
+As an example, we could have an immutability constraint (`immutable` as identifier) which causes a property to not be updatable after set.
+
+As an other example, we could have more abstract constraints like `type` which causes a property value to be of a specific type (`number`, `string`,... ).
+In that case, we could add constraints depending property type and value. In the example above, we set that property `a` must be a `number` between 1 and 2.
+
+Constraint logic is implemented into `core-nft` plugin as a class which must implement the `Constraint` interface:
+
+```typescript
+interface ConstraintApplicationContext {
+    propertyKey: string;
+    propertyNewValue: string;
+    transaction: ITransactionData;
+}
+
+interface Constraint {
+    apply(context: ConstraintApplicationContext, parameters?: any): Promise<void>;
+    name(): string;
+}
+```
+
+Each constraint must set a name and implement a check on nft property update transaction validity. 
+To check validity, a constraint has several information:
+- a context 
+    - the updated property key 
+    - its new value 
+    - and the overall transaction ( can be used to set complex rules ( based on sender, fees, or any other nft property update value ) )
+- possible constraint parameters as described previously. 
+- and they can do asynchronous operations like get property current value from database.
+
+Bellow is an example of how `type` constraint could be implemented (voluntarily simplified):
+
+```typescript
+
+class TypeConstraint implements Constraint {
+    public async apply(context: ConstraintApplicationContext, parameters?: any){
+        const { type, min, max } = parameters;
+        if( type === "number" && ( context.propertyNewValue < min || context.propertyNewValue > max )){
+            throw new ConstraintError();
+        }
+    }
+
+    public name() {
+        return "type";
+    }
+}
+
+```
+
+Constraint application must be made inside the `canBeApplied` method of nft-update transaction handler. 
+
+Current proposal makes nft property constraint relatively easy to customize : register a new custom constraint logic to constraint manager and reference it directly from `network.json` file.
+
+***Note 1:*** `network.json` is validated before used using schemes. When adding custom constraints, you must update `network.json` scheme accordingly. 
+***Note 2:*** a limitation exists due to current implementation of handlers in Ark. You can't apply constraint from `canBeApplied` method because it's synchronous.
 
 ### Advanced token features
 
@@ -230,27 +304,3 @@ I'm working on [`@unik-name`](https://www.unik-name.com/) solution at [Spaceleph
 We've developed a proof-of-concept of Ark's NFT in our labs.
 
 Project sources are available [on the dedicated repository](https://github.com/spacelephantlabs/ark-core_non-fungible-token).
-
-**What has been done:**
-
-- 2 new transaction types 
-    - constants
-    - builders
-    - validators
-    - (de)serializers
-    - handlers
-- a dedicated package (`core-nft`) handling NFT class configuration and management. 
-- API routes to access NFTs properties
-- update of `tester-cli` package to build `nft` transactions (mint and transfer).
-- various packages adaptations. 
-
-**Future works:**
-
-- fix double transaction execution
-- persist in database
-- implement a way to revert update transactions.
-- estimate and set default fees amount.
-- rename /nft API to /nfts
-- fix old tests.
-
-See the [README of the project](https://github.com/spacelephantlabs/ark-core_non-fungible-token/blob/feat/nft/README.md) for an updated version of the todo/done tasks.
