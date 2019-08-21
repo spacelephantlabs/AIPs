@@ -43,7 +43,19 @@ Then, we describe a non-exhaustive list of token features we have to keep in min
 
 The advantage of NFTs is that you cryptographically own a token. As a consequence, a transaction is valid only if sender is the token owner. 
 
-In order to be able to handle NFTs, at least two new transactions must be defined (types `9` and `10`): 
+In order to be able to handle NFTs, at three new transactions must be defined (types `9` and `10` and `11`).
+
+*Note*: types number are arbitrary choices. They'll be increased to prevent conflicts with future types released before nft transactions. 
+
+### > Mint (type 11)
+
+The first thing to do to get a NFT is to create and broadcast a `mint` transaction. 
+This transaction is responsible of writing on chain that a given wallet is the first owner of a token identified by a never used value.
+
+**Transaction dedicated parameters**
+- token id: a 32 characters string
+- *(optional)* a list of properties
+
 
 #### > Transfer (type 9)
 
@@ -116,6 +128,10 @@ Payload size is between **67** (single property with 1 character key) and **7347
 3. `property value` must be an output of the sha-256 function. It's a design choice used to limit the size of token properties value. We don't want blockchain to store a lot of crappy data, but prints of these crappy data stored elsewhere.
 4. No controls are made on-chain on new properties value.
 5. `Token id` and `token owners` can't be updated with this transaction type. `Token id` can't be updated at all.`Token owner` can be updated with a `transfer` transaction.
+
+
+
+
 
 ### Model
 
