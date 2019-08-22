@@ -45,36 +45,57 @@ The advantage of NFTs is that you cryptographically own a token. As a consequenc
 
 In order to be able to handle NFTs, at three new transactions must be defined (types `9` and `10` and `11`).
 
+Three distinct transaction types is useful to :
+- set different minimum fees for different NFT actions (based on chain token economy)
+- be able to easily distinguish NFT actions in tools (CLI, explorer or even in plugins).
+- add global checks on which transaction types a wallet can submit (if some roles exist on a chain)
+
 *Note*: types number are arbitrary choices. They'll be increased to prevent conflicts with future types released before nft transactions. 
 
-### > Mint (type 11)
+#### > Mint (type 11)
 
 The first thing to do to get a NFT is to create and broadcast a `mint` transaction. 
 This transaction is responsible of writing on chain that a given wallet is the first owner of a token identified by a never used value.
 
-**Transaction dedicated parameters**
-- token id: a 32 characters string
-- *(optional)* a list of properties
+Transaction sender will be the first NFT owner. 
+NFT must not be owned by a wallet before transaction application. 
+If properties are set, they must comply with their network constraints (More details below)
 
+**Transaction dedicated parameters**
+
+- token id, a 32 characters string
+- *(optional)* a list of properties to set at creation (a simple key/value json object)
+
+**Transaction payload**
+
+| Description           | Size (bytes) | Example                                                            |
+| --------------------- | ------------ | :----------------------------------------------------------------- |
+| type                  | 1            | 0x0B                                                               |
+| token id              | 32           | 0x0000000000000000000000000000000000000000000000000000000000000001 |
+| properties length     | 1            | 0x01                                                               |
+| property N key length | 1            | 0x12                                                               |
+| property N key (utf-8)| 1-255        | 0x70726f706572747931                                               |
+| property N key length | 1            | 0x40                                                               |
+| property N value      | 1-255        | 0x3C9683017F9E4BF33D0FBEDD26BF143FD72DE9B9DD145441B75F0604047EA28E |
+
+Payload size is between **33** and **130 KB** ([type is a mandatory field of **transaction header** ](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-11.md))
+
+**Design choices**
+
+1. `token id` size (32 bytes) is an arbitrary choice inherited from [ERC721 specifications](https://github.com/ethereum/EIPs/blame/master/EIPS/eip-721.md#L270-L274) identifying NFTs as the largest unsigned integer of the EVM: `uint256` (256 bits). It also allows a wide variety of applications because UUIDs and sha3 outputs are of this size. 
+2. Token id is computed off-chain. It's a design choice easing the minting process. The same process is used in popular NFTs on other chains (like Cryptokitties on Ethereum).
+3. It's not possible to mint a token for someone else. Two transactions are needed (`mint` then `transfer`). It's a questionable design choice. 
 
 #### > Transfer (type 9)
 
-Because under the hood they are very similar, `NFT Transfer` transaction type gathers two behaviors:
-- **token mint:** seal existence of unique token id and its owner.
-- **token ownership transfer:** seal the new owner of a token.
+Transfer NFT ownership to another wallet.
+
+Transaction sender must own the identified nft and recipient will be the new owner.
 
 **Transaction dedicated parameters**
 
-- token id: a large number
-- *(optional)* recipient id: address (`string`)
-
-If a `NFT Transfer` transaction is created without `recipient id` field, it's a `token mint` transaction. Else, it's a `token ownership transfer` transaction.
-
-A `token mint` transaction is valid as soon as given token id has not been sealed previously. Then, owner of this new token is the transaction sender.
-
-A `token ownership transfer` transaction is valid if:
-- token identified by given token id has been previously sealed
-- transaction sender is the owner of given token id
+- NFT identifier to transfer
+- recipient wallet address, future token owner
 
 **Transaction payload**
 
@@ -82,56 +103,48 @@ A `token ownership transfer` transaction is valid if:
 | ------------------------------ | ------------ | :----------------------------------------------------------------- |
 | type                           | 1            | 0x09                                                               |
 | token id                       | 32           | 0x0000000000000000000000000000000000000000000000000000000000000001 |
-| transfer type                  | 1            | 0x00 (mint) or 0x01 (transfer)                                     |
-| recipient address *(optional)* | 21           | 0x171dfc69b54c7fe901e91d5a9ab78388645e2427ea                       |
+| recipient address              | 21           | 0x171dfc69b54c7fe901e91d5a9ab78388645e2427ea                       |
 
-Payload size is between **33** and **54 bytes** ([type is a mandatory field of **transaction header** ](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-11.md))
+Payload size is **53 bytes** ([type is a mandatory field of **transaction header** ](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-11.md))
 
 **Design choices**
 
-1. `token id` size (32 bytes) is an arbitrary choice inherited from [ERC721 specifications](https://github.com/ethereum/EIPs/blame/master/EIPS/eip-721.md#L270-L274) identifying NFTs as the largest unsigned integer of the EVM: `uint256` (256 bits). It also allows a wide variety of applications because UUIDs and sha3 outputs are of this size. 
-2. `transfer type` payload is only used by de-serializer to know if following 21 bytes must be read or not. This choice has been made to limit the number of new transaction types. As an alternative, we could simply split transaction in two types `mint` and `transfer`.
-3. `Transfer` type is only used to create a new blank token or update ownership property. It means that we need at least two transactions to create a new token with user-defined properties.
-4. Token id is computed off-chain. It's a design choice easing the minting process. The same process is used in popular NFTs on other chains (like Cryptokitties on Ethereum).
-5. It's not possible to mint a token for someone else. Two transactions are needed (`mint` then `transfer`). It's a questionable design choice. 
+1. `Transfer` type is only used to transfer a token. You can't transfer and update properties with the same transaction. 
+2. It's not possible to delegate transfer right to another wallet (like it is in [ERC721 specification](https://github.com/ethereum/EIPs/blame/master/EIPS/eip-721.md#L114-L120)) It's a questionable design choice. 
 
 #### > Update (type 10)
 
-This transaction type is used to update token properties values.
+This transaction type is used to add, update and delete properties of a NFT instance.
+
+NFT must be minted and transaction sender must own NFT before application.
+Each property must comply with its network constraints (More details below)
 
 **Transaction dedicated parameters**
 
-- token id: which token to update
-- map of `propertyName` / `propertyValue`: list of new token properties value. 
-    
-Transaction is valid if:
-- token identified by given token id has been previously sealed
-- transaction sender is the owner of given token id
+- token identifier to update properties
+- a list of properties and their value (a key/value json object).
 
 **Transaction payload**
 
 | Description           | Size (bytes) | Example                                                            |
 | --------------------- | ------------ | :----------------------------------------------------------------- |
-| type                  | 1            | 0x0A                                                               |
+| type                  | 1            | 0x0B                                                               |
 | token id              | 32           | 0x0000000000000000000000000000000000000000000000000000000000000001 |
 | properties length     | 1            | 0x01                                                               |
-| property N key length | 1            | 0x3F                                                               |
+| property N key length | 1            | 0x12                                                               |
 | property N key (utf-8)| 1-255        | 0x70726f706572747931                                               |
-| property N value      | 32           | 0x3C9683017F9E4BF33D0FBEDD26BF143FD72DE9B9DD145441B75F0604047EA28E |
+| property N key length | 1            | 0x40                                                               |
+| property N value      | 1-255        | 0x3C9683017F9E4BF33D0FBEDD26BF143FD72DE9B9DD145441B75F0604047EA28E |
 
-Payload size is between **67** (single property with 1 character key) and **73473 bytes** (255 properties with 255 characters key each).
+Payload size is between **33** and **130 KB** ([type is a mandatory field of **transaction header** ](https://github.com/ArkEcosystem/AIPs/blob/master/AIPS/aip-11.md))
 
 **Design choices**
 
 1. `properties length` is the number of updated properties. It must be positive. Size of the payload has been limited to 1 byte. As a consequence, the maximum number of updatable properties in a single transaction is (2^8)-1=255 properties. 
 2. `property key` is encoded in utf8 and can contain a maximum of 255 characters. 
 3. `property value` must be an output of the sha-256 function. It's a design choice used to limit the size of token properties value. We don't want blockchain to store a lot of crappy data, but prints of these crappy data stored elsewhere.
-4. No controls are made on-chain on new properties value.
+4. Some controls on new properties value can be made on-chain with NFT constraints feature (details bellow).
 5. `Token id` and `token owners` can't be updated with this transaction type. `Token id` can't be updated at all.`Token owner` can be updated with a `transfer` transaction.
-
-
-
-
 
 ### Model
 
@@ -208,7 +221,11 @@ This plugin has many roles:
 
 A NFT must be configurable through `network.json` file because its properties are specific to a network and must be the same for all nodes validating nft transactions.
 
-A new property of `network` is created. Here is a configuration sample: 
+A new property of `network` is created. 
+
+Here is a configuration sample where chain hosts UNIK NFTs, which can have : 
+- an immutable property `a` with only 2 possible number values (`1` and `2`).
+- a *genesis* property `b`
 
 ```JSON
 {
@@ -227,22 +244,35 @@ A new property of `network` is created. Here is a configuration sample:
                         }
                     }
                 ]
+            },
+            "b":{
+                "genesis":true
             }
         }
     }
 }
 ```
 
-A NFT has a name and properties. In this configuration file, you could set constraints on a properties value.
+#### NFT genesis property
 
-A constraint would be :
+A **genesis** property is a NFT property that must be set at NFT creation (in a `mint` transaction). 
+
+If a NFT property has the (object) property `genesis=true` then, the `mint` transaction must include `nft.properties` asset **AND** this property must have a value ( compliant with may exist constraints).
+If it doesn't, then transaction is rejected and NFT is not minted. 
+By default, a NFT property is not genesis.
+
+#### NFT constrained property
+
+A NFT property constraint is a set of rules a property value update of a NFT transaction (`mint` or `update`) must obey in order to be applied and forged.
+
+It's composed by:
 - a name/identifier
 - optional parameters to customize constraints depending on property.
 
-As an example, we could have an immutability constraint (`immutable` as identifier) which causes a property to not be updatable after set.
+As an example, we could have an immutability constraint (`immutable` as identifier) which causes a property to not be updatable after being set.
 
 As an other example, we could have more abstract constraints like `type` which causes a property value to be of a specific type (`number`, `string`,... ).
-In that case, we could add constraints depending property type and value. In the example above, we set that property `a` must be a `number` between 1 and 2.
+In that case, we could add constraints depending property type and value. In the example above, we set that property `a` must be a `number` between `1` and `2`.
 
 Constraint logic is implemented into `core-nft` plugin as a class which must implement the `Constraint` interface:
 
@@ -292,7 +322,6 @@ Constraint application must be made inside the `canBeApplied` method of nft-upda
 Current proposal makes nft property constraint relatively easy to customize : register a new custom constraint logic to constraint manager and reference it directly from `network.json` file.
 
 ***Note 1:*** `network.json` is validated before used using schemes. When adding custom constraints, you must update `network.json` scheme accordingly. 
-***Note 2:*** a limitation exists due to current implementation of handlers in Ark. You can't apply constraint from `canBeApplied` method because it's synchronous.
 
 ### Advanced token features
 
