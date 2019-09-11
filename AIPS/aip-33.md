@@ -196,14 +196,16 @@ A new repository and queries in `core-database-postgres` are required.
 ### API
 
 We need new routes fetching NFTs from current chain state. 
-Here are some new routes:
+Here are some new routes, depending on your NFT name configuration: `<nft_name>` (see configuration file below).
 
-- [GET] `/nfts/`: to index all sealed NFTs. This route follows the same logic as other root routes (like `/transactions` or `/blocks`). It's paginated and returns all properties for each NFT.
-- [GET] `/nfts/{id}`: to show NFT instance with given identifier and all its properties
-- [GET] `/nfts/{id}/properties`: to get all properties of a NFT (paginated)
+- [GET] `/<nft_name>s/`: to index all sealed NFTs. This route follows the same logic as other root routes (like `/transactions` or `/blocks`). It's paginated and returns all properties for each of your NFT.
+- [GET] `/<nft_name>s/{id}`: to show NFT instance with given identifier and all its properties
+- [GET] `/<nft_name>s/{id}/properties`: to get all properties of a NFT (paginated), a list of `key-value`
+- [GET] `/<nft_name>s/{id}/properties/{key}`: to get value of a specific property of a NFT, designated by its `key`
+- [GET] `/wallets/{wallet_id}/<nft_name>s/`: to index all sealed NFTs for a specific wallet, designated by its public key or address. This route follows the same logic as `/<nft_name>s/`.
+
 
 Existing routes:
-- [GET] `/wallets/{id}`: must be updated to return `list of owned tokens id`
 - [POST] `/transactions/`: is used to submit a new NFT transaction (transfer or update).
 
 
@@ -229,28 +231,62 @@ Here is a configuration sample where chain hosts UNIK NFTs, which can have :
 
 ```JSON
 {
-    "nft":{
-        "name": "UNIK",
-        "properties":{
-            "a":{
-                "constraints":[
-                    "immutable",
-                    {
-                        "name":"type",
-                        "parameters": {
-                            "type": "number",
-                            "min": 1,
-                            "max": 2
+    "nft": {
+        "<nft_name>": {
+            "name": "Your NFT Name, for human reader",
+            "properties": {
+                "a": {
+                    "constraints": [
+                        "immutable",
+                        {
+                            "name": "type",
+                            "parameters": {
+                                "type": "number",
+                                "min": 1,
+                                "max": 2
+                            }
                         }
-                    }
-                ]
-            },
-            "b":{
-                "genesis":true
+                    ]
+                },
+                "b": {
+                    "genesis": true
+                }
             }
         }
     }
 }
+```
+
+Please note the `<nft_name>` will be used to setup the API HTTP routes, sometimes also by adding a trailing `s` when pluralized.
+
+Example, for the UNS network, powering the `UNIK` NFT.
+```JSON
+{
+    "nft": {
+        "unik": {
+            "name": "UNIK",
+            "properties": {
+                "a": {
+                    "constraints": [
+                        "immutable",
+                        {
+                            "name": "type",
+                            "parameters": {
+                                "type": "number",
+                                "min": 1,
+                                "max": 2
+                            }
+                        }
+                    ]
+                },
+                "b": {
+                    "genesis": true
+                }
+            }
+        }
+    }
+}
+
 ```
 
 #### NFT genesis property
