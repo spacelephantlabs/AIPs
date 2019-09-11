@@ -7,7 +7,7 @@
   Type: Standards Track
   Category: Core
   Created: 2019-02-11
-  Last Update: 2019-02-11
+  Last Update: 2019-09-11
 ---
 
 ## Abstract
@@ -199,7 +199,7 @@ We need new routes fetching NFTs from current chain state.
 Here are some new routes, depending on your NFT name configuration: `<nft_name>` (see configuration file below).
 
 - [GET] `/<nft_name>s/`: to index all sealed NFTs. This route follows the same logic as other root routes (like `/transactions` or `/blocks`). It's paginated and returns all properties for each of your NFT.
-- [GET] `/<nft_name>s/{id}`: to show NFT instance with given identifier and all its properties
+- [GET] `/<nft_name>s/{id}`: to show NFT instance with given identifier
 - [GET] `/<nft_name>s/{id}/properties`: to get all properties of a NFT (paginated), a list of `key-value`
 - [GET] `/<nft_name>s/{id}/properties/{key}`: to get value of a specific property of a NFT, designated by its `key`
 - [GET] `/wallets/{wallet_id}/<nft_name>s/`: to index all sealed NFTs for a specific wallet, designated by its public key or address. This route follows the same logic as `/<nft_name>s/`.
